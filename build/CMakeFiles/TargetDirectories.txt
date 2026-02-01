@@ -1,0 +1,3 @@
+/home/adrian/Projects/kinectcpp/build/CMakeFiles/kinect_hand.dir
+/home/adrian/Projects/kinectcpp/build/CMakeFiles/edit_cache.dir
+/home/adrian/Projects/kinectcpp/build/CMakeFiles/rebuild_cache.dir
