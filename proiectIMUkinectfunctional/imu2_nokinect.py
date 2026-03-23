@@ -43,8 +43,8 @@ def InitGL():
 
 def DrawCube():
     vertices = [
-        [1,1,-1],[1,-1,-1],[-1,-1,-1],[-1,1,-1],
-        [1,1,1],[1,-1,1],[-1,-1,1],[-1,1,1]
+        [1,0.1,-1],[1,-0.1,-1],[-1,-0.1,-1],[-1,0.1,-1],
+        [1,0.1,1],[1,-0.1,1],[-1,-0.1,1],[-1,0.1,1]
     ]
     edges = [
         (0,1),(1,2),(2,3),(3,0),
@@ -65,9 +65,9 @@ def DrawGL():
               0, 0, 0,
               0, 1, 0)
 
-    glRotatef(myimu.Roll, 1, 0, 0)
-    glRotatef(myimu.Pitch, 0, 1, 0)
-    glRotatef(myimu.Yaw, 0, 0, 1)
+    glRotatef(myimu.Roll, 0, 0, -1)
+    glRotatef(myimu.Pitch, -1, 0, 0)
+    glRotatef(myimu.Yaw, 0,-1, 0)
 
     DrawCube()
     pygame.display.flip()
@@ -102,9 +102,10 @@ def IMUThread():
     print("Calibrare gata")
 
     roll_gyro = pitch_gyro = yaw_gyro = 0.0
-    dt = 0.01
 
     while True:
+        last_time = time.time()
+        dt = last_time - time.time()
         line = ser.readline().decode('utf-8').strip()
         if not line:
             continue
@@ -133,7 +134,6 @@ def IMUThread():
             # eroare mare -> alpha mare (mai mult giro)
             alpha_min = 0.90
             alpha_max = 0.99
-            k = 0.1  # cât de repede schimbă alpha
 
             # clamping
             alpha = alpha_min + (alpha_max - alpha_min) * min(error / g, 1.0)
