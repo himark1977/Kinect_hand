@@ -7,9 +7,9 @@ import serial
 import math
 import os
 import time
-import fcntl 
-
-
+import fcntl  # pentru non-blocking pipe
+import csv
+# ---------- CONFIG ---------- #
 PIPE_PATH = "/tmp/kinect_pipe"
 SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 115200
@@ -17,7 +17,15 @@ TIMEOUT = 0.01  # secunde
 DISPLAY_SIZE = (640, 480)
 SCALE = 0.01   # scalare Kinect -> OpenGL
 
+CSV_FILE = "imu_kinect_data.csv"
 
+csv_file = open(CSV_FILE, "w", newline="")
+csv_writer = csv.writer(csv_file)
+
+# header
+csv_writer.writerow(["time","roll","pitch","yaw","x","y","z"])
+
+# ---------- STRUCTURI ---------- #
 class IMU:
     Roll = 0.0
     Pitch = 0.0
@@ -28,6 +36,7 @@ class IMU:
 
 myimu = IMU()
 
+# ---------- OPENGL ---------- #
 def InitPygame():
     pygame.init()
     pygame.display.set_mode(DISPLAY_SIZE, DOUBLEBUF | OPENGL)
@@ -63,7 +72,7 @@ def DrawGL():
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
-
+    # Camera follow cubul
     eye_x, eye_y, eye_z = 0, 2, -10
     center_x, center_y, center_z = 0, 0, myimu.pz
     print(center_x,center_y,center_z)
@@ -81,7 +90,7 @@ def DrawGL():
     glPopMatrix()
     pygame.display.flip()
 
-
+# ---------- CALIBRARE ---------- #
 offset_x = 0.0
 offset_y = 0.0
 offset_z = 0.0
@@ -125,7 +134,7 @@ def CalibrateKinect(duration=2.0):
 
     pipe.close()
 
-
+# ---------- THREAD KINECT ---------- #
 def KinectThread():
     global myimu
     if not os.path.exists(PIPE_PATH):
@@ -148,10 +157,10 @@ def KinectThread():
         except:
             continue
 
-
+# ---------- THREAD IMU ---------- #
 def IMUThread():
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=TIMEOUT)
-
+    # Calibrare gyro offset
     gx_offset = gy_offset = gz_offset = 0.0
     samples = 500
     for i in range(samples):
@@ -199,7 +208,7 @@ def IMUThread():
         except:
             continue
 
-
+# ---------- MAIN ---------- #
 def main():
     CalibrateKinect(duration=2.0)
     threading.Thread(target=KinectThread, daemon=True).start()
@@ -215,8 +224,21 @@ def main():
             if event.type == QUIT or (event.type==KEYDOWN and event.key==K_ESCAPE):
                 running = False
         DrawGL()
+
+        # salvare CSV
+        csv_writer.writerow([
+            time.time(),
+            myimu.Roll,
+            myimu.Pitch,
+            myimu.Yaw,
+            myimu.px,
+            myimu.py,
+            myimu.pz
+        ])
+
         clock.tick(60)
     pygame.quit()
+    csv_file.close()
 
 if __name__ == "__main__":
     main()

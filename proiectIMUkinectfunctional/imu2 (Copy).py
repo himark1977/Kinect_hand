@@ -11,7 +11,7 @@ import fcntl  # pentru non-blocking pipe
 
 # ---------- CONFIG ---------- #
 PIPE_PATH = "/tmp/kinect_pipe"
-SERIAL_PORT = "/dev/ttyUSB1"
+SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 115200
 TIMEOUT = 0.01  # secunde
 DISPLAY_SIZE = (640, 480)

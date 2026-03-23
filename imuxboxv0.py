@@ -5,7 +5,7 @@ import serial
 import math
 
 class PortSettings:
-    Name = "/dev/ttyUSB1"
+    Name = "/dev/ttyUSB0"
     Speed = 115200
     Timeout = 2
 class IMU:

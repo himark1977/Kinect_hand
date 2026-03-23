@@ -1,0 +1,3 @@
+/home/adria/Kinect_hand/build/CMakeFiles/kinect_hand.dir
+/home/adria/Kinect_hand/build/CMakeFiles/edit_cache.dir
+/home/adria/Kinect_hand/build/CMakeFiles/rebuild_cache.dir
