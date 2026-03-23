@@ -83,91 +83,6 @@ def DrawGL():
 
     glPushMatrix()
     glTranslatef(myimu.px, myimu.py, myimu.pz)
-    glRotatef(myimu.Roll,1,0,0)import pygame
-from pygame.locals import *
-from OpenGL.GL import *
-from OpenGL.GLU import *
-import threading
-import serial
-import math
-import os
-import time
-import fcntl  # pentru non-blocking pipe
-import csv
-# ---------- CONFIG ---------- #
-PIPE_PATH = "/tmp/kinect_pipe"
-SERIAL_PORT = "/dev/ttyUSB0"
-BAUD_RATE = 115200
-TIMEOUT = 0.01  # secunde
-DISPLAY_SIZE = (640, 480)
-SCALE = 0.01   # scalare Kinect -> OpenGL
-
-CSV_FILE = "imu_kinect_data.csv"
-
-csv_file = open(CSV_FILE, "w", newline="")
-csv_writer = csv.writer(csv_file)
-
-# header
-csv_writer.writerow(["time","roll","pitch","yaw","x","y","z"])
-
-# ---------- STRUCTURI ---------- #
-class IMU:
-    Roll = 0.0
-    Pitch = 0.0
-    Yaw = 0.0
-    px = 0.0
-    py = 0.0
-    pz = 3.0
-
-myimu = IMU()
-
-# ---------- OPENGL ---------- #
-def InitPygame():
-    pygame.init()
-    pygame.display.set_mode(DISPLAY_SIZE, DOUBLEBUF | OPENGL)
-    pygame.display.set_caption("IMU + Kinect Visualizer")
-
-def InitGL():
-    glClearColor(46/255,45/255,64/255,1)
-    glEnable(GL_DEPTH_TEST)
-    glDepthFunc(GL_LEQUAL)
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(90, (DISPLAY_SIZE[0]/DISPLAY_SIZE[1]), 0.1, 50.0)
-    glMatrixMode(GL_MODELVIEW)
-
-def DrawCube():
-    vertices = [
-        [1,1,-1],[1,-1,-1],[-1,-1,-1],[-1,1,-1],
-        [1,1,1],[1,-1,1],[-1,-1,1],[-1,1,1]
-    ]
-    edges = [
-        (0,1),(1,2),(2,3),(3,0),
-        (4,5),(5,6),(6,7),(7,4),
-        (0,4),(1,5),(2,6),(3,7)
-    ]
-    glBegin(GL_LINES)
-    for edge in edges:
-        for vertex in edge:
-            glVertex3fv(vertices[vertex])
-    glEnd()
-
-def DrawGL():
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-
-    # Camera follow cubul
-    eye_x, eye_y, eye_z = 0, 2, -10
-    center_x, center_y, center_z = 0, 0, myimu.pz
-    print(center_x,center_y,center_z)
-    up_x, up_y, up_z = 0,1,0
-    gluLookAt(eye_x, eye_y, eye_z,
-              center_x, center_y, center_z,
-              up_x, up_y, up_z)
-
-    glPushMatrix()
-    glTranslatef(myimu.px, myimu.py, myimu.pz)
     glRotatef(myimu.Roll,0,1,0)
     glRotatef(myimu.Pitch,1,0,0)
     glRotatef(myimu.Yaw,0,1,0)
@@ -265,19 +180,6 @@ def IMUThread():
 
     roll_gyro = pitch_gyro = yaw_gyro = 0.0
     dt = 0.01
-    g = 9.81  # accelerația gravitațională
-    a_total = math.sqrt(ax*ax + ay*ay + az*az)
-    error = abs(a_total - g)
-
-    # mapăm eroarea la alpha
-    # eroare mică -> alpha mic (mai mult accel)
-    # eroare mare -> alpha mare (mai mult giro)
-    alpha_min = 0.90
-    alpha_max = 0.99
-    k = 0.1  # cât de repede schimbă alpha
-
-    # clamping
-    alpha = alpha_min + (alpha_max - alpha_min) * min(error / g, 1.0)
 
     while True:
         line = ser.readline().decode('utf-8').strip()
@@ -296,9 +198,23 @@ def IMUThread():
             roll_gyro  += gx*dt
             pitch_gyro += gy*dt
             yaw_gyro   += gz*dt
+            
+            g = 9.81  # accelerația gravitațională
+            a_total = math.sqrt(ax*ax + ay*ay + az*az)
+            error = abs(a_total - g)
 
+            # mapăm eroarea la alpha
+            # eroare mică -> alpha mic (mai mult accel)
+            # eroare mare -> alpha mare (mai mult giro)
+            alpha_min = 0.90
+            alpha_max = 0.99
+            k = 0.1  # cât de repede schimbă alpha
+
+            # clamping
+            alpha = alpha_min + (alpha_max - alpha_min) * min(error / g, 1.0)
+          
             myimu.Roll  = alpha*roll_gyro + (1-alpha)*roll_acc
-            roll_gyro   = myimu.Roll  # resetează integrala
+            roll_gyro   = myimu.Roll  
 
             myimu.Pitch = alpha*pitch_gyro + (1-alpha)*pitch_acc
             pitch_gyro  = myimu.Pitch

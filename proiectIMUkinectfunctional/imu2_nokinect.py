@@ -103,14 +103,13 @@ def IMUThread():
 
     roll_gyro = pitch_gyro = yaw_gyro = 0.0
     dt = 0.01
-    alpha = 0.96
 
     while True:
         line = ser.readline().decode('utf-8').strip()
         if not line:
             continue
 
-        try:
+        try: 
             nums = [float(x) for x in line.split(',')]
             if len(nums) < 6:
                 continue
@@ -125,8 +124,25 @@ def IMUThread():
             pitch_gyro += gy * dt
             yaw_gyro   += gz * dt
 
+            g = 9.81  # accelerația gravitațională
+            a_total = math.sqrt(ax*ax + ay*ay + az*az)
+            error = abs(a_total - g)
+
+            # mapăm eroarea la alpha
+            # eroare mică -> alpha mic (mai mult accel)
+            # eroare mare -> alpha mare (mai mult giro)
+            alpha_min = 0.90
+            alpha_max = 0.99
+            k = 0.1  # cât de repede schimbă alpha
+
+            # clamping
+            alpha = alpha_min + (alpha_max - alpha_min) * min(error / g, 1.0)
+          
+
             myimu.Roll  = alpha*roll_gyro + (1-alpha)*roll_acc
+            roll_gyro   = myimu.Roll  
             myimu.Pitch = alpha*pitch_gyro + (1-alpha)*pitch_acc
+            pitch_gyro  = myimu.Pitch
             myimu.Yaw   = yaw_gyro
 
         except:
