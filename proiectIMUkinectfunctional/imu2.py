@@ -49,8 +49,8 @@ def InitGL():
 
 def DrawCube():
     vertices = [
-        [1,1,-1],[1,-1,-1],[-1,-1,-1],[-1,1,-1],
-        [1,1,1],[1,-1,1],[-1,-1,1],[-1,1,1]
+        [1,0.1,-1],[1,-0.1,-1],[-1,-0.1,-1],[-1,0.1,-1],
+        [1,0.1,1],[1,-0.1,1],[-1,-0.1,1],[-1,0.1,1]
     ]
     edges = [
         (0,1),(1,2),(2,3),(3,0),
@@ -71,9 +71,14 @@ def DrawGL():
     eye_x, eye_y, eye_z = 0, 2, -10
     center_x, center_y, center_z = myimu.px, myimu.py, myimu.pz
     up_x, up_y, up_z = 0,1,0
-    gluLookAt(eye_x, eye_y, eye_z,
-              center_x, center_y, center_z,
-              up_x, up_y, up_z)
+    
+    # gluLookAt(eye_x, eye_y, eye_z,
+    #           center_x, center_y, center_z,
+    #           up_x, up_y, up_z)
+
+    gluLookAt(0, 0, -7,
+              0, 0, 0,
+              0, 1, 0)
 
     glPushMatrix()
     glTranslatef(myimu.px, myimu.py, myimu.pz)
@@ -94,9 +99,15 @@ def CalibrateKinect(duration=2.0):
     print("Calibrare Kinect: tine mana in pozitia centrala...")
 
     if not os.path.exists(PIPE_PATH):
-        os.mkfifo(PIPE_PATH)
+        print(f"Kinect pipe not found at {PIPE_PATH}. Skipping Kinect calibration.")
+        return
 
-    pipe = open(PIPE_PATH, "r")
+    try:
+        pipe = open(PIPE_PATH, "r")
+    except Exception as e:
+        print(f"Could not open Kinect pipe: {e}. Skipping Kinect calibration.")
+        return
+        
     fd = pipe.fileno()
     flags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -132,9 +143,15 @@ def CalibrateKinect(duration=2.0):
 def KinectThread():
     global myimu
     if not os.path.exists(PIPE_PATH):
-        os.mkfifo(PIPE_PATH)
+        print(f"Kinect pipe not found at {PIPE_PATH}. Kinect thread will use default values.")
+        return
 
-    pipe = open(PIPE_PATH, "r")
+    try:
+        pipe = open(PIPE_PATH, "r")
+    except Exception as e:
+        print(f"Could not open Kinect pipe: {e}. Kinect thread will use default values.")
+        return
+        
     fd = pipe.fileno()
     flags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -152,48 +169,59 @@ def KinectThread():
             continue
 
 # ---------- THREAD IMU ---------- #
+# ---------- THREAD IMU ---------- #
 def IMUThread():
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=TIMEOUT)
-    # Calibrare gyro offset
+
+    # calibrare gyro
     gx_offset = gy_offset = gz_offset = 0.0
-    samples = 500
-    for _ in range(samples):
+    samples = 300
+
+    print("Calibrare IMU... nu misca senzorul")
+    count = 0
+    while count < samples:
         line = ser.readline().decode('utf-8').strip()
         if not line:
             continue
         try:
-            numbers = [float(x) for x in line.split(',') if x.strip()]
-            gx_offset += numbers[3]
-            gy_offset += numbers[4]
-            gz_offset += numbers[5]
-        except Exception:
+            nums = [float(x) for x in line.split(',')]
+            gx_offset += nums[3]
+            gy_offset += nums[4]
+            gz_offset += nums[5]
+            count += 1
+        except:
             continue
+
     gx_offset /= samples
     gy_offset /= samples
     gz_offset /= samples
+
+    print("Calibrare gata")
 
     roll_gyro = pitch_gyro = yaw_gyro = 0.0
 
     while True:
         last_time = time.time()
-        dt = time.time() - last_time
+        dt = last_time - time.time()
         line = ser.readline().decode('utf-8').strip()
         if not line:
             continue
-        try:
-            numbers = [float(x) for x in line.split(',') if x.strip()]
-            if len(numbers) < 6:
+
+        try: 
+            nums = [float(x) for x in line.split(',')]
+            if len(nums) < 6:
                 continue
-            ax, ay, az = numbers[0], numbers[1], numbers[2]
-            gx, gy, gz = numbers[3]-gx_offset, numbers[4]-gy_offset, numbers[5]-gz_offset
+
+            ax, ay, az = nums[0], nums[1], nums[2]
+            gx, gy, gz = nums[3]-gx_offset, nums[4]-gy_offset, nums[5]-gz_offset
 
             roll_acc = math.atan2(ay, math.sqrt(ax*ax+az*az))*180/math.pi
             pitch_acc = math.atan2(-ax, math.sqrt(ay*ay+az*az))*180/math.pi
 
-            roll_gyro  += gx*dt
-            pitch_gyro += gy*dt
-            yaw_gyro   += gz*dt
-            
+            roll_gyro  += gx * dt
+            pitch_gyro += gy * dt
+            yaw_gyro   += gz * dt
+
             g = 9.81  # accelerația gravitațională
             a_total = math.sqrt(ax*ax + ay*ay + az*az)
             error = abs(a_total - g)
@@ -207,26 +235,26 @@ def IMUThread():
             # clamping
             alpha = alpha_min + (alpha_max - alpha_min) * min(error / g, 1.0)
           
+
             myimu.Roll  = alpha*roll_gyro + (1-alpha)*roll_acc
             roll_gyro   = myimu.Roll  
-
             myimu.Pitch = alpha*pitch_gyro + (1-alpha)*pitch_acc
             pitch_gyro  = myimu.Pitch
             myimu.Yaw   = yaw_gyro
 
-            # print(myimu.Roll,myimu.Pitch,myimu.Yaw,myimu.px,myimu.py,myimu.pz)
         except:
             continue
 
 # ---------- MAIN ---------- #
 def main():
+    print("Pornire program...")
     CalibrateKinect(duration=2.0)
     threading.Thread(target=KinectThread, daemon=True).start()
     threading.Thread(target=IMUThread, daemon=True).start()
 
     InitPygame()
     InitGL()
-
+    print("start vizualizare")
     clock = pygame.time.Clock()
     running = True
 
@@ -254,3 +282,6 @@ def main():
 
             clock.tick(60)
     pygame.quit()
+
+if __name__ == "__main__":
+    main()
