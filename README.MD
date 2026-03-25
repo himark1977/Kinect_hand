@@ -50,7 +50,9 @@ Data is collected in real-time and can be logged to CSV files for analysis.
    - For pipe communication: The scripts create `/tmp/kinect_pipe` if needed.
 
 5. **Install opencv**:
-```sudo apt install libopencv-dev```
+```
+sudo apt install libopencv-dev
+```
 
 ## Usage
 
