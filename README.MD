@@ -49,6 +49,9 @@ Data is collected in real-time and can be logged to CSV files for analysis.
    - Ensure access to serial port: `sudo chmod 666 /dev/ttyUSB0`
    - For pipe communication: The scripts create `/tmp/kinect_pipe` if needed.
 
+5. **Install opencv**:
+```sudo apt install libopencv-dev```
+
 ## Usage
 
 ### Running the Full System (IMU + Kinect)
